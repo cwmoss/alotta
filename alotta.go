@@ -40,11 +40,11 @@ func run() error {
 	queries := blogs.New(db)
 
 	// list all authors
-	blogs, err := queries.ListBlogs(ctx)
+	allblogs, err := queries.ListBlogs(ctx)
 	if err != nil {
 		return err
 	}
-	log.Println(blogs)
+	log.Println(allblogs)
 
 	// create an author
 	insertedBlog, err := queries.CreateBlog(ctx, blogs.CreateBlogParams{
