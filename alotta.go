@@ -1,10 +1,22 @@
 package main
 
 import (
+	"context"
+	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"reflect"
+
+	"alotta/blogs"
+
+	_ "modernc.org/sqlite"
 )
+
+//go:embed schema.sql
+var ddl string
 
 type User struct {
 	Firstname string `json:"firstname"`
@@ -12,8 +24,55 @@ type User struct {
 	Age       int    `json:"age"`
 }
 
+func run() error {
+	ctx := context.Background()
+
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		return err
+	}
+
+	// create tables
+	if _, err := db.ExecContext(ctx, ddl); err != nil {
+		return err
+	}
+
+	queries := blogs.New(db)
+
+	// list all authors
+	blogs, err := queries.ListBlogs(ctx)
+	if err != nil {
+		return err
+	}
+	log.Println(blogs)
+
+	// create an author
+	insertedBlog, err := queries.CreateBlog(ctx, blogs.CreateBlogParams{
+		Title:   sql.NullString{String: "Brian Kernighan", Valid: true},
+		Content: sql.NullString{String: "Co-author of The C Programming Language and The Go Programming Language", Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+	log.Println(insertedBlog)
+
+	// get the author we just inserted
+	fetchedBlog, err := queries.GetBlog(ctx, insertedBlog.ID)
+	if err != nil {
+		return err
+	}
+
+	// prints true
+	log.Println(reflect.DeepEqual(insertedBlog, fetchedBlog))
+	return nil
+}
+
 func main() {
 	var port = "9999"
+
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Printf("starting server on http://localhost:%s\n", port)
 
